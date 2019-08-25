@@ -1,0 +1,26 @@
+{
+  "name": "GreatBay",
+  "version": "1.0.0",
+  "description": "Ebay style bidding application based on node and mysql",
+  "main": "greatbay.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/unnikrishnan-r/GreatBay.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/unnikrishnan-r/GreatBay/issues"
+  },
+  "homepage": "https://github.com/unnikrishnan-r/GreatBay#readme",
+  "dependencies": {
+    "dotenv": "^8.1.0",
+    "inquirer": "^7.0.0",
+    "mysql": "^2.17.1",
+    "sha1": "^1.1.1"
+  }
+}
