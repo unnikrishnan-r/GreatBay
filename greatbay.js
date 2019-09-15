@@ -2,8 +2,11 @@ require("dotenv").config();
 const mysql = require("mysql");
 const sha1 = require("sha1");
 const inquirer = require("inquirer");
+const moment = require("moment");
 const checkLoginQuery =
-  "SELECT COUNT(*) as rowCount FROM USERS WHERE user_name = ? AND user_password = ?";
+  "SELECT user_id FROM USERS WHERE user_name = ? AND user_password = ?";
+const createProductQuery = "INSERT INTO products SET ?";
+const createAuctionQuery = "INSERT INTO auctions SET ?";
 
 var connection = mysql.createConnection({
   host: "localhost",
@@ -40,17 +43,39 @@ var loginQuestions = [
 ];
 
 var userPanelQuestions = [
-    {
-        type: "list",
-        message: "Please choose what you wish to do",
-        name: "userChoice",
-        choices: [
-            {name:"Post an Item for Auction" , value:"post-an-item"},
-            {name:"Bid for an Item", value: "bid-for-an-item"}
-        ]
-    }
-]
+  {
+    type: "list",
+    message: "Please choose what you wish to do",
+    name: "userChoice",
+    choices: [
+      { name: "Post an Item for Auction", value: "post-an-item" },
+      { name: "Bid for an Item", value: "bid-for-an-item" }
+    ]
+  }
+];
 
+var productQuestions = [
+  {
+    type: "input",
+    message: "Enter a name for your auction",
+    name: "auctionName"
+  },
+  {
+    type: "number",
+    message: "How many days should the auction run for",
+    name: "numberOfDays"
+  },
+  {
+    type: "input",
+    message: "Enter a name for your Product",
+    name: "productName"
+  },
+  {
+    type: "input",
+    message: "Please describe your product",
+    name: "productDescription"
+  }
+];
 function makeConnection() {
   return new Promise(resolve => {
     connection.connect(function(err) {
@@ -87,11 +112,26 @@ async function validateLogin(userid, password) {
       userid,
       sha1(password)
     ]);
-    if (queryResult[0].rowCount == 0) {
-      return false;
-    } else {
-      return true;
-    }
+    return queryResult.length > 0 ? queryResult[0].user_id : false;
+  }
+}
+
+async function createAuction(auctionDetails, userid) {
+  var productInfo = {};
+  var auctionInfo = {};
+  productInfo.product_name = auctionDetails.productName;
+  productInfo.product_description = auctionDetails.productDescription;
+  var insertProduct = await queryTable(createProductQuery, productInfo);
+
+  if (insertProduct.affectedRows) {
+    auctionInfo.auction_name = auctionDetails.auctionName;
+    auctionInfo.auction_owner = userid;
+    auctionInfo.product_in_auction = insertProduct.insertId;
+    auctionInfo.auction_end_date = moment()
+      .add(auctionDetails.numberOfDays, "days")
+      .format("YYYY-MM-DD HH:mm:ss");
+    var insertAuction = await queryTable(createAuctionQuery, auctionInfo);
+    return insertAuction.affectedRows ? true : false;
   }
 }
 
@@ -100,18 +140,26 @@ async function applicationBrain() {
   var welcomeResponse = await inquirerPrompt(welcomeQuestions);
   if (welcomeResponse.entryAction === "entry-action-login") {
     var loginResponse = await inquirerPrompt(loginQuestions);
-    var loginResult = await validateLogin(loginResponse.inputUserName,
-        loginResponse.inputUserPassword);
-    if(loginResult){
-        var userOptionPanel = await inquirerPrompt(userPanelQuestions);
-        if(userOptionPanel == "post-an-item"){
-            console.log("Going to post an Item")
-        }else{
-            console.log("Going to bid for an item")
-        }
-    }else{
-        console.log("Login incorrect!!!");
-        return;
+    var loginUserId = await validateLogin(
+      loginResponse.inputUserName,
+      loginResponse.inputUserPassword
+    );
+    if (loginUserId) {
+      var userOptionPanel = await inquirerPrompt(userPanelQuestions);
+      console.log(userOptionPanel);
+      if (userOptionPanel.userChoice == "post-an-item") {
+        console.log("Going to post an Item");
+        var auctionDetails = await inquirerPrompt(productQuestions);
+        var createAuctionResult = await createAuction(
+          auctionDetails,
+          loginUserId
+        );
+      } else {
+        console.log("Going to bid for an item");
+      }
+    } else {
+      console.log("Login incorrect!!!");
+      return;
     }
   } else {
     var signupResponse = await askSignupQuestion();
